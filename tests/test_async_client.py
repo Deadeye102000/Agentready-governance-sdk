@@ -73,7 +73,7 @@ async def test_list_feature_flags_error_mapping(
         status_code=401,
         json={
             "error": {
-                "code": "UNAUTHENTICATED",
+                "code": "UNAUTHORIZED",
                 "message": "Invalid API key",
                 "details": {},
             }
@@ -82,7 +82,7 @@ async def test_list_feature_flags_error_mapping(
 
     with pytest.raises(AuthenticationError) as exc_info:
         await client.list_feature_flags()
-    assert exc_info.value.code == "UNAUTHENTICATED"
+    assert exc_info.value.code == "UNAUTHORIZED"
     assert exc_info.value.status_code == 401
 
 
@@ -119,7 +119,7 @@ async def test_upsert_feature_flag_error(client: AsyncGovernanceClient) -> None:
         status_code=403,
         json={
             "error": {
-                "code": "PERMISSION_DENIED",
+                "code": "FORBIDDEN",
                 "message": "Admin required",
                 "details": {},
             }
@@ -143,17 +143,22 @@ async def test_toggle_feature_flag_success(client: AsyncGovernanceClient) -> Non
         "createdAt": "2026-08-11T12:00:00Z",
         "updatedAt": "2026-08-11T12:00:00Z",
     }
-    respx.post(f"{BASE_URL}/api/v1/feature-flags/toggle").respond(
+    route = respx.post(f"{BASE_URL}/api/v1/feature-flags/toggle").respond(
         status_code=200, json=flag_json
     )
 
     result = await client.toggle_feature_flag(
         capability="network:outbound",
-        state=FeatureFlagState.ENABLED,
         agent_id="agent_1",
     )
     assert isinstance(result, FeatureFlag)
     assert result.state == FeatureFlagState.ENABLED
+
+    import json
+
+    payload = json.loads(route.calls.last.request.content)
+    assert payload == {"capability": "network:outbound", "agentId": "agent_1"}
+    assert "state" not in payload
 
 
 @respx.mock
@@ -172,7 +177,7 @@ async def test_toggle_feature_flag_validation_error(
     )
 
     with pytest.raises(ValidationError):
-        await client.toggle_feature_flag(capability="", state="ENABLED")
+        await client.toggle_feature_flag(capability="")
 
 
 @respx.mock

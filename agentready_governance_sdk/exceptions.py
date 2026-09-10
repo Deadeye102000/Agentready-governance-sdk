@@ -43,13 +43,16 @@ class ValidationError(AgentReadyAPIError):
 
 
 class AuthenticationError(AgentReadyAPIError):
-    """Raised when authentication fails (401 Unauthorized)."""
+    """Raised when authentication fails (401 Unauthorized).
+
+    The backend emits ``code: "UNAUTHORIZED"`` for all authentication failures.
+    """
 
     def __init__(
         self,
         message: str = "Authentication failed",
         status_code: int = 401,
-        code: str = "UNAUTHENTICATED",
+        code: str = "UNAUTHORIZED",
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -58,13 +61,16 @@ class AuthenticationError(AgentReadyAPIError):
 
 
 class PermissionDeniedError(AgentReadyAPIError):
-    """Raised when actor lacks necessary permission (403 Forbidden)."""
+    """Raised when actor lacks necessary permission (403 Forbidden).
+
+    The backend emits ``code: "FORBIDDEN"`` for all authorization failures.
+    """
 
     def __init__(
         self,
         message: str = "Permission denied",
         status_code: int = 403,
-        code: str = "PERMISSION_DENIED",
+        code: str = "FORBIDDEN",
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -117,6 +123,44 @@ class ConflictError(AgentReadyAPIError):
         )
 
 
+class ConcurrentToolCallDisallowedError(ConflictError):
+    """Raised when a second tool call is checked while one is already pending (409).
+
+    The backend emits ``code: "CONCURRENT_TOOL_CALL_DISALLOWED"``.
+    Complete the pending tool call via ``report_tool_call_result`` before
+    checking a new one.
+    """
+
+    def __init__(
+        self,
+        message: str = "A tool call is already pending for this execution",
+        status_code: int = 409,
+        code: str = "CONCURRENT_TOOL_CALL_DISALLOWED",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message, status_code=status_code, code=code, details=details
+        )
+
+
+class IdempotencyKeyMismatchError(ConflictError):
+    """Raised when an idempotency key is reused with a different payload (409).
+
+    The backend emits ``code: "IDEMPOTENCY_KEY_MISMATCH"``.
+    """
+
+    def __init__(
+        self,
+        message: str = "Idempotency key already used with a different payload",
+        status_code: int = 409,
+        code: str = "IDEMPOTENCY_KEY_MISMATCH",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message, status_code=status_code, code=code, details=details
+        )
+
+
 class PayloadTooLargeError(AgentReadyAPIError):
     """Raised when request payload exceeds size limits (413 Payload Too Large)."""
 
@@ -133,13 +177,17 @@ class PayloadTooLargeError(AgentReadyAPIError):
 
 
 class RateLimitError(AgentReadyAPIError):
-    """Raised when request rate limit is exceeded (429 Too Many Requests)."""
+    """Raised when request rate limit is exceeded (429 Too Many Requests).
+
+    The backend emits ``code: "RATE_LIMITED"``.
+    Check ``retry_after`` for the number of seconds to wait before retrying.
+    """
 
     def __init__(
         self,
         message: str = "Rate limit exceeded",
         status_code: int = 429,
-        code: str = "RATE_LIMIT_EXCEEDED",
+        code: str = "RATE_LIMITED",
         details: dict[str, Any] | None = None,
         retry_after: float | None = None,
     ) -> None:
@@ -165,13 +213,16 @@ class ApprovalRequiredError(AgentReadyAPIError):
 
 
 class InternalServerError(AgentReadyAPIError):
-    """Raised when server encounters an internal error (500 Internal Server Error)."""
+    """Raised when server encounters an internal error (500 Internal Server Error).
+
+    The backend emits ``code: "INTERNAL_ERROR"``.
+    """
 
     def __init__(
         self,
         message: str = "Internal server error",
         status_code: int = 500,
-        code: str = "INTERNAL_SERVER_ERROR",
+        code: str = "INTERNAL_ERROR",
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(

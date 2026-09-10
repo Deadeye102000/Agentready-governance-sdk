@@ -95,7 +95,7 @@ async def test_create_execution_403_error(client: AsyncGovernanceClient) -> None
         status_code=403,
         json={
             "error": {
-                "code": "PERMISSION_DENIED",
+                "code": "FORBIDDEN",
                 "message": "Tenant mismatch or forbidden action",
                 "details": {},
             }

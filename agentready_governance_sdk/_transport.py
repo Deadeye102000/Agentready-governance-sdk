@@ -17,7 +17,9 @@ from agentready_governance_sdk.exceptions import (
     AgentReadyAPIError,
     ApprovalRequiredError,
     AuthenticationError,
+    ConcurrentToolCallDisallowedError,
     ConflictError,
+    IdempotencyKeyMismatchError,
     InsufficientScopeError,
     InternalServerError,
     NotFoundError,
@@ -27,18 +29,21 @@ from agentready_governance_sdk.exceptions import (
     ValidationError,
 )
 
-# Error code to exception mapping dictionary
+# Error code strings are taken verbatim from apps/api/src/lib/errorCodes.ts.
+# Every key here must exactly match what the backend puts in error.code.
 _ERROR_MAP: dict[str, type[AgentReadyAPIError]] = {
     "VALIDATION_ERROR": ValidationError,
-    "UNAUTHENTICATED": AuthenticationError,
-    "PERMISSION_DENIED": PermissionDeniedError,
+    "UNAUTHORIZED": AuthenticationError,  # NOT "UNAUTHENTICATED"
+    "FORBIDDEN": PermissionDeniedError,  # NOT "PERMISSION_DENIED"
     "INSUFFICIENT_SCOPE": InsufficientScopeError,
     "NOT_FOUND": NotFoundError,
     "CONFLICT": ConflictError,
     "PAYLOAD_TOO_LARGE": PayloadTooLargeError,
-    "RATE_LIMIT_EXCEEDED": RateLimitError,
+    "RATE_LIMITED": RateLimitError,  # NOT "RATE_LIMIT_EXCEEDED"
     "APPROVAL_REQUIRED": ApprovalRequiredError,
-    "INTERNAL_SERVER_ERROR": InternalServerError,
+    "INTERNAL_ERROR": InternalServerError,  # NOT "INTERNAL_SERVER_ERROR"
+    "CONCURRENT_TOOL_CALL_DISALLOWED": ConcurrentToolCallDisallowedError,
+    "IDEMPOTENCY_KEY_MISMATCH": IdempotencyKeyMismatchError,
 }
 
 

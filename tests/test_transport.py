@@ -105,7 +105,7 @@ def test_429_succeeds_after_retry() -> None:
             status_code=429,
             json={
                 "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
+                    "code": "RATE_LIMITED",
                     "message": "Rate limit",
                     "details": {},
                 }
@@ -136,7 +136,7 @@ async def test_async_retry_policy_429_retry() -> None:
             status_code=429,
             json={
                 "error": {
-                    "code": "RATE_LIMIT_EXCEEDED",
+                    "code": "RATE_LIMITED",
                     "message": "Rate limit",
                     "details": {},
                 }
@@ -167,7 +167,7 @@ def test_retry_after_wait_strategy() -> None:
         headers={"Retry-After": "12.5"},
         json={
             "error": {
-                "code": "RATE_LIMIT_EXCEEDED",
+                "code": "RATE_LIMITED",
                 "message": "Too Many Requests",
                 "details": {},
             }
