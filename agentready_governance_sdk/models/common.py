@@ -22,6 +22,15 @@ class ToolCallStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     BLOCKED = "BLOCKED"
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"
+
+
+class ToolCallDecision(str, Enum):
+    """Decision returned by the pre-flight tool-call check."""
+
+    ALLOW = "ALLOW"
+    BLOCK = "BLOCK"
+    WAIT_FOR_APPROVAL = "WAIT_FOR_APPROVAL"
 
 
 class ApprovalGateMode(str, Enum):
@@ -54,3 +63,29 @@ class ActorType(str, Enum):
     USER = "USER"
     AGENT = "AGENT"
     SYSTEM = "SYSTEM"
+
+
+class EvalRunStatus(str, Enum):
+    """Status of an evaluation run."""
+
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    ERRORED = "ERRORED"
+
+
+# Machine API key scopes assignable via the API
+# (mirrors backend ASSIGNABLE_API_KEY_SCOPES)
+class ApiKeyScope(str, Enum):
+    """Scope that can be assigned to a machine API key."""
+
+    AGENT_EXECUTION_WRITE = "agent_execution:write"
+    AGENT_EXECUTION_READ = "agent_execution:read"
+    GOVERNANCE_WRITE = "governance:write"
+    GOVERNANCE_READ = "governance:read"
+    EVAL_WRITE = "eval:write"
+    EVAL_READ = "eval:read"
+    AUDIT_READ = "audit:read"
+    API_KEY_WRITE = "api_key:write"
+    API_KEY_READ = "api_key:read"

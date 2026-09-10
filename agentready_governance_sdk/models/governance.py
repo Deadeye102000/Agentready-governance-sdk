@@ -1,6 +1,7 @@
 """Governance models for AgentReady SDK."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import Field
@@ -11,6 +12,14 @@ from agentready_governance_sdk.models.common import (
     ApprovalStatus,
     FeatureFlagState,
 )
+
+
+class McpServerStatus(str, Enum):
+    """Lifecycle status of a registered MCP server."""
+
+    PLANNED = "PLANNED"
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
 
 
 class FeatureFlag(BaseApiModel):
@@ -81,3 +90,17 @@ class ReviewApprovalRequestInput(BaseApiModel):
 
     status: ApprovalStatus
     note: str | None = None
+
+
+class McpServerRegistration(BaseApiModel):
+    """Registered MCP (Machine Control Protocol) server entity."""
+
+    id: str
+    organization_id: str
+    name: str
+    base_url: str | None = None
+    status: McpServerStatus = McpServerStatus.PLANNED
+    capabilities: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime

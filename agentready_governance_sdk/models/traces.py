@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import Field
 
 from agentready_governance_sdk.models.base import BaseApiModel
-from agentready_governance_sdk.models.common import ToolCallStatus
+from agentready_governance_sdk.models.common import ToolCallDecision, ToolCallStatus
 
 
 class ToolCallTrace(BaseApiModel):
@@ -48,3 +48,47 @@ class UpdateToolCallTraceInput(BaseApiModel):
     output: Any | None = None
     error: str | None = None
     latency_ms: int | None = None
+
+
+class CheckToolCallInput(BaseApiModel):
+    """Input for the pre-flight tool-call governance check.
+
+    ``idempotency_key`` is always sent as a non-null string. The
+    ``check_tool_call`` client method auto-generates a UUID when the caller
+    does not supply one.
+    """
+
+    tool_name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str
+
+
+class ToolCallCheckResult(BaseApiModel):
+    """Decision returned by the pre-flight tool-call governance check."""
+
+    decision: ToolCallDecision | str
+    reason: str
+    tool_call_trace_id: str
+    approval_request_id: str | None = None
+    execution_status: str
+    consecutive_blocks: int
+
+
+class ReportToolCallResultInput(BaseApiModel):
+    """Input for reporting the outcome of a completed tool call."""
+
+    status: ToolCallStatus | str
+    output: dict[str, Any] | None = None
+    error: str | None = None
+    latency_ms: int | None = None
+    is_final_action: bool | None = None
+
+
+class ToolCallResultResponse(BaseApiModel):
+    """Response from the report-tool-call-result endpoint."""
+
+    tool_call_trace_id: str
+    status: str
+    execution_id: str
+    execution_status: str
+    completed_at: datetime
