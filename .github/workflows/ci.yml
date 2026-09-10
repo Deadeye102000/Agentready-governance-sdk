@@ -1,0 +1,172 @@
+name: SDK CI & Quality Gate
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  sdk-tests:
+    name: Lint, Drift Protection & Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install Dependencies
+        run: poetry install --with dev
+
+      - name: Run Ruff Lint Check
+        run: poetry run ruff check .
+
+      - name: Run Ruff Format Check
+        run: poetry run ruff format --check .
+
+      - name: Run Fixture Drift Protection & Unit Tests
+        run: poetry run pytest -m "not integration" -v
+
+  live-backend-integration:
+    name: Live Backend Integration Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agentready
+          POSTGRES_PASSWORD: agentready
+          POSTGRES_DB: agentready
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://agentready:agentready@localhost:5432/agentready?schema=public"
+      DIRECT_URL: "postgresql://agentready:agentready@localhost:5432/agentready?schema=public"
+      POSTGRES_USER: "agentready"
+      POSTGRES_PASSWORD: "agentready"
+      POSTGRES_DB: "agentready"
+      NODE_ENV: "development"
+      AUTH_SESSION_SECRET: "ci-auth-session-secret-must-be-at-least-32-characters"
+      ALLOW_INSECURE_DEV_SECRETS: "true"
+      API_PORT: "3001"
+      WEB_PORT: "3000"
+      AGENTREADY_INTEGRATION_URL: "http://localhost:3001"
+      # Note on credentials: The demo key below is configured exclusively in this CI environment block
+      # (never in test source code). This is acceptable specifically because it only ever authenticates
+      # against an ephemeral CI-only database container that is destroyed when the job completes.
+      AGENTREADY_INTEGRATION_API_KEY: "ar_dev_demo_agent_key_change_me"
+
+    steps:
+      - name: Checkout SDK Repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Pinned AgentReady Backend
+        uses: actions/checkout@v4
+        with:
+          repository: Deadeye102000/Agentready
+          ref: 1e0d183707400f0fbb2bd1a8b4773d99ba16dde3
+          path: _backend
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: _backend/pnpm-lock.yaml
+
+      - name: Install Backend Dependencies
+        working-directory: _backend
+        run: |
+          cp .env.example .env
+          pnpm install --frozen-lockfile
+
+      - name: Deploy Database Schema & Seed Data
+        working-directory: _backend
+        run: |
+          pnpm db:generate
+          pnpm db:deploy
+          pnpm db:seed
+
+      - name: Start Backend API Daemon
+        working-directory: _backend
+        run: |
+          pnpm dev:api &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          echo "Started backend daemon with PID $API_PID"
+
+      - name: Wait for Backend Health Check (Bounded Retry)
+        run: |
+          MAX_ATTEMPTS=30
+          INTERVAL_SECONDS=2
+          ATTEMPT=1
+          HEALTH_URL="http://localhost:3001/health"
+
+          echo "Polling $HEALTH_URL (max ${MAX_ATTEMPTS} attempts, interval ${INTERVAL_SECONDS}s)..."
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is healthy on attempt $ATTEMPT!"
+              exit 0
+            fi
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: status=$STATUS. Waiting ${INTERVAL_SECONDS}s..."
+            sleep $INTERVAL_SECONDS
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          echo "::error::AgentReady API failed to reach healthy state within $((MAX_ATTEMPTS * INTERVAL_SECONDS)) seconds."
+          exit 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install SDK Dependencies
+        run: poetry install --with dev
+
+      - name: Run Live Backend Integration Tests
+        run: poetry run pytest tests/test_integration.py -v
+
+      - name: Teardown Backend Daemon
+        if: always()
+        run: |
+          if [ -n "$API_PID" ]; then
+            echo "Terminating AgentReady API process ($API_PID)..."
+            kill -15 "$API_PID" 2>/dev/null || true
+            sleep 1
+            kill -9 "$API_PID" 2>/dev/null || true
+          fi

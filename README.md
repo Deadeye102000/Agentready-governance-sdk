@@ -188,6 +188,7 @@ from agentready_governance_sdk import (
     ToolCallStatus,
 )
 
+
 async def main():
     async with AsyncGovernanceClient(api_key="agt_secret_key_123") as client:
         # 1. Register an agent execution request
@@ -231,6 +232,7 @@ async def main():
             execution.id,
             {"status": ExecutionStatus.SUCCEEDED, "output": {"migrated": True}},
         )
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -342,7 +344,7 @@ try:
     approved_execution = await client.wait_for_approval(
         execution_id="exec_abc123",
         poll_interval=1.5,  # Poll every 1.5 seconds
-        timeout=120.0,       # Timeout after 2 minutes
+        timeout=120.0,  # Timeout after 2 minutes
     )
     print(f"Approved! Proceeding with execution: {approved_execution.id}")
 except ApprovalRejectedError as e:
@@ -414,7 +416,9 @@ elif check.decision == ToolCallDecision.WAIT_FOR_APPROVAL:
     print(f"Action requires human approval. Request ID: {check.approval_request_id}")
     # Poll or await approval...
 elif check.decision == ToolCallDecision.BLOCK:
-    print(f"Tool call blocked: {check.reason} (consecutive blocks: {check.consecutive_blocks})")
+    print(
+        f"Tool call blocked: {check.reason} (consecutive blocks: {check.consecutive_blocks})"
+    )
 ```
 
 ---

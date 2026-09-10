@@ -32,18 +32,18 @@ def test_evaluate_trajectory_from_fixture(case_id: str, case: dict[str, Any]) ->
     )
 
     expected = case["expected"]
-    assert (
-        result.passed == expected["passed"]
-    ), f"[{case_id}] passed mismatch: got {result.passed}, want {expected['passed']}"
-    assert (
-        result.score == expected["score"]
-    ), f"[{case_id}] score mismatch: got {result.score}, want {expected['score']}"
-    assert (
-        result.matched_steps == expected["matched_steps"]
-    ), f"[{case_id}] matched_steps mismatch: got {result.matched_steps}"
-    assert (
-        result.total_expected == expected["total_expected"]
-    ), f"[{case_id}] total_expected mismatch: got {result.total_expected}"
+    assert result.passed == expected["passed"], (
+        f"[{case_id}] passed mismatch: got {result.passed}, want {expected['passed']}"
+    )
+    assert result.score == expected["score"], (
+        f"[{case_id}] score mismatch: got {result.score}, want {expected['score']}"
+    )
+    assert result.matched_steps == expected["matched_steps"], (
+        f"[{case_id}] matched_steps mismatch: got {result.matched_steps}"
+    )
+    assert result.total_expected == expected["total_expected"], (
+        f"[{case_id}] total_expected mismatch: got {result.total_expected}"
+    )
     assert result.violations == expected["violations"], (
         f"[{case_id}] violations mismatch:\n"
         f"  got  {result.violations}\n"
