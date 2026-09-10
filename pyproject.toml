@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentready-governance-sdk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python SDK for AgentReady Governance API"
 authors = ["AgentReady <support@agentready.ai>"]
 readme = "README.md"
@@ -34,6 +34,9 @@ ignore = []
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests requiring a live Docker stack (deselect with '-m not integration')",
+]
 
 [build-system]
 requires = ["poetry-core"]

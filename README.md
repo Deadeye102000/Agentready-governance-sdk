@@ -358,15 +358,12 @@ except ApprovalTimeoutError as e:
 Control agent capabilities dynamically at runtime without redeploying agent code.
 
 ```python
-from agentready_governance_sdk import FeatureFlagState
-
 # List feature flags for a specific agent
 flags = await client.list_feature_flags(agent_id="agent_sre_bot")
 
-# Toggle a capability feature flag
+# Toggle a capability feature flag (flips current state dynamically)
 toggled = await client.toggle_feature_flag(
     capability="shell_exec",
-    state=FeatureFlagState.DISABLED,
     agent_id="agent_sre_bot",
 )
 
@@ -383,7 +380,131 @@ upserted = await client.upsert_feature_flag(
 
 ---
 
-### 4. Non-Blocking Tool Call Tracing
+### 4. Pre-Flight Tool Call Governance & Result Reporting
+
+Before executing a sensitive or consequential tool call, agents can perform a pre-flight governance check. The SDK automatically generates a UUID `idempotency_key` if none is supplied:
+
+```python
+from agentready_governance_sdk import (
+    ReportToolCallResultInput,
+    ToolCallDecision,
+    ToolCallStatus,
+)
+
+# 1. Pre-flight check before running a tool
+check = await client.check_tool_call(
+    execution_id="exec_123",
+    tool_name="aws_ec2_stop_instance",
+    arguments={"instance_id": "i-0123456789abcdef0"},
+)
+
+if check.decision == ToolCallDecision.ALLOW:
+    # Execute the tool safely...
+    result_output = {"status": "stopped"}
+    # Report back the completion
+    await client.report_tool_call_result(
+        trace_id=check.tool_call_trace_id,
+        input=ReportToolCallResultInput(
+            status=ToolCallStatus.SUCCEEDED,
+            output=result_output,
+            is_final_action=False,
+        ),
+    )
+elif check.decision == ToolCallDecision.WAIT_FOR_APPROVAL:
+    print(f"Action requires human approval. Request ID: {check.approval_request_id}")
+    # Poll or await approval...
+elif check.decision == ToolCallDecision.BLOCK:
+    print(f"Tool call blocked: {check.reason} (consecutive blocks: {check.consecutive_blocks})")
+```
+
+---
+
+### 5. Deterministic Trajectory Evaluator (Cross-Language Parity)
+
+Evaluate agent execution trajectories against structured behavioral policies offline or in tests. Both Python and TypeScript share identical deterministic evaluation logic verified against a shared cross-language fixture suite (`tests/fixtures/trajectory_eval_cases.json`):
+
+```python
+from agentready_governance_sdk import (
+    ExpectedStep,
+    TrajectoryMode,
+    TrajectoryPolicy,
+    evaluate_trajectory_traces,
+)
+
+policy = TrajectoryPolicy(
+    mode=TrajectoryMode.STRICT_SEQUENCE,
+    expected_steps=[
+        ExpectedStep(tool="search_web"),
+        ExpectedStep(tool="read_file"),
+        ExpectedStep(tool="summarize", required=False),
+    ],
+    forbidden_tools=["bash_eval"],
+    max_tool_calls=5,
+)
+
+traces = [
+    {"tool_name": "search_web", "step_index": 0},
+    {"tool_name": "read_file", "step_index": 1},
+]
+
+evaluation = evaluate_trajectory_traces(traces, policy)
+print(f"Passed: {evaluation.passed}, Score: {evaluation.score}")
+# Passed: True, Score: 1.0 (matched 2 of 2 required steps)
+```
+
+---
+
+### 6. Task Contracts, Eval Suites & Regression Detection
+
+Define formal task contracts, run evaluation suites, and monitor behavioral regressions between releases:
+
+```python
+from agentready_governance_sdk import CreateTaskContractInput, CreateEvalCaseInput
+
+# Create a contract with constraints
+contract = await client.create_task_contract(
+    CreateTaskContractInput(
+        project_id="proj_1",
+        name="Customer Support Contract",
+        objective="Help users without issuing unauthorized refunds",
+        allowed_tools=["fetch_order", "lookup_faq"],
+        required_approvals=["issue_refund"],
+    )
+)
+
+# Run full evaluation suite and check regression report
+runs = await client.run_eval_suite(task_contract_id=contract.id)
+regression = await client.get_regression_report(contract_id=contract.id)
+if regression.delta and regression.delta < 0:
+    print(f"Alert: Performance regression of {regression.delta:.2f} detected!")
+```
+
+---
+
+### 7. Machine API Key Management
+
+Generate scoped machine API keys directly from the SDK. The `raw_key` secret is returned only once at creation:
+
+```python
+from agentready_governance_sdk import ApiKeyScope, CreateApiKeyInput
+
+# Create a new machine key for CI/CD
+new_key = await client.create_api_key(
+    CreateApiKeyInput(
+        name="GitHub Actions Deployer",
+        scopes=[ApiKeyScope.AGENT_EXECUTION_WRITE, ApiKeyScope.GOVERNANCE_READ],
+    )
+)
+print("Save this key immediately:", new_key.raw_key)
+
+# List and revoke keys
+keys = await client.list_api_keys()
+await client.revoke_api_key(new_key.api_key_record.id)
+```
+
+---
+
+### 8. Non-Blocking Tool Call Tracing
 
 Record detailed tool execution telemetry for auditability and compliance.
 
@@ -416,7 +537,7 @@ updated_trace = await client.update_tool_call(
 
 ---
 
-### 5. Audit Logs & Observability Dashboard
+### 9. Audit Logs & Observability Dashboard
 
 Inspect security audit history and fetch organizational dashboard metrics.
 
@@ -451,6 +572,8 @@ graph TD
     AgentReadyAPIError --> ApprovalRequiredError
     AgentReadyAPIError --> NotFoundError
     AgentReadyAPIError --> ConflictError
+    ConflictError --> ConcurrentToolCallDisallowedError
+    ConflictError --> IdempotencyKeyMismatchError
     AgentReadyAPIError --> PayloadTooLargeError
     AgentReadyAPIError --> RateLimitError
     AgentReadyAPIError --> InternalServerError
@@ -463,15 +586,17 @@ graph TD
 | `AgentReadyError` | `Exception` | - | - | Base exception for all SDK errors. |
 | `AgentReadyAPIError` | `AgentReadyError` | `4xx` / `5xx` | Variable | Base class for HTTP API response errors. |
 | `ValidationError` | `AgentReadyAPIError` | `400` | `VALIDATION_ERROR` | Request payload or parameter validation failed. |
-| `AuthenticationError` | `AgentReadyAPIError` | `401` | `UNAUTHENTICATED` | Missing or invalid API key credential. |
-| `PermissionDeniedError` | `AgentReadyAPIError` | `403` | `PERMISSION_DENIED` | Tenant mismatch or insufficient permissions. |
+| `AuthenticationError` | `AgentReadyAPIError` | `401` | `UNAUTHORIZED` | Missing or invalid API key credential. |
+| `PermissionDeniedError` | `AgentReadyAPIError` | `403` | `FORBIDDEN` | Tenant mismatch or insufficient permissions. |
 | `InsufficientScopeError` | `PermissionDeniedError` | `403` | `INSUFFICIENT_SCOPE` | API key lacks required scope for requested action. |
 | `ApprovalRequiredError` | `AgentReadyAPIError` | `403` | `APPROVAL_REQUIRED` | Operation gated by policy requiring human approval. |
 | `NotFoundError` | `AgentReadyAPIError` | `404` | `NOT_FOUND` | Requested entity (execution, gate, flag) not found. |
 | `ConflictError` | `AgentReadyAPIError` | `409` | `CONFLICT` | Entity state conflict (e.g. duplicate resource). |
+| `ConcurrentToolCallDisallowedError` | `ConflictError` | `409` | `CONCURRENT_TOOL_CALL_DISALLOWED` | Another tool call is already pending for this execution. |
+| `IdempotencyKeyMismatchError` | `ConflictError` | `409` | `IDEMPOTENCY_KEY_MISMATCH` | Reused idempotency key with differing payload. |
 | `PayloadTooLargeError` | `AgentReadyAPIError` | `413` | `PAYLOAD_TOO_LARGE` | Request payload exceeds maximum server byte size. |
-| `RateLimitError` | `AgentReadyAPIError` | `429` | `RATE_LIMIT_EXCEEDED` | Request quota exceeded (carries `retry_after` if header present). |
-| `InternalServerError` | `AgentReadyAPIError` | `500` | `INTERNAL_SERVER_ERROR` | Server-side internal error encountered. |
+| `RateLimitError` | `AgentReadyAPIError` | `429` | `RATE_LIMITED` | Request quota exceeded (carries `retry_after` if header present). |
+| `InternalServerError` | `AgentReadyAPIError` | `500` | `INTERNAL_ERROR` | Server-side internal error encountered. |
 | `ApprovalTimeoutError` | `AgentReadyError` | - | - | SDK control flow exception when `wait_for_approval` times out. |
 | `ApprovalRejectedError` | `AgentReadyError` | - | - | SDK control flow exception when execution status is `FAILED` or `CANCELLED`. |
 
