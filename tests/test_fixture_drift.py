@@ -59,23 +59,25 @@ def test_fixture_structure_and_schema() -> None:
 
     for case in cases:
         assert required_keys.issubset(case.keys()), f"Missing keys in {case.get('id')}"
-        assert expected_subkeys.issubset(case["expected"].keys()), (
-            f"Case {case.get('id')} missing expected fields"
-        )
+        assert expected_subkeys.issubset(
+            case["expected"].keys()
+        ), f"Case {case.get('id')} missing expected fields"
 
 
 def test_fixture_matches_sibling_repo_if_available() -> None:
     """When running in dev with sibling Agentready workspace, assert byte identity."""
     sibling_env = os.environ.get("AGENTREADY_MAIN_REPO_PATH")
     candidate_paths = [
-        Path(sibling_env)
-        / "packages"
-        / "agent-contracts"
-        / "test"
-        / "fixtures"
-        / "trajectory_eval_cases.json"
-        if sibling_env
-        else None,
+        (
+            Path(sibling_env)
+            / "packages"
+            / "agent-contracts"
+            / "test"
+            / "fixtures"
+            / "trajectory_eval_cases.json"
+            if sibling_env
+            else None
+        ),
         Path(__file__).resolve().parents[2]
         / "Agentready"
         / "packages"
