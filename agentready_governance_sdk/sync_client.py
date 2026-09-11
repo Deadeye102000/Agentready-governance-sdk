@@ -227,6 +227,14 @@ class GovernanceClient:
             self._async_client.report_tool_call_result(trace_id=trace_id, input=input)
         )
 
+    def report_tool_result(
+        self,
+        trace_id: str,
+        input: ReportToolCallResultInput | dict[str, Any],
+    ) -> ToolCallResultResponse:
+        """Alias for :meth:`report_tool_call_result`."""
+        return self.report_tool_call_result(trace_id=trace_id, input=input)
+
     def list_tool_call_traces(
         self,
         execution_id: str | None = None,
@@ -380,3 +388,22 @@ class GovernanceClient:
     def get_dashboard(self) -> dict[str, Any]:
         """Get observability dashboard metrics for the organization."""
         return self._run(self._async_client.get_dashboard())
+
+
+AgentReadyClient = GovernanceClient
+
+_DEFAULT_SYNC_CLIENT: GovernanceClient | None = None
+
+
+def get_default_client() -> GovernanceClient:
+    """Return or initialize the default GovernanceClient singleton."""
+    global _DEFAULT_SYNC_CLIENT
+    if _DEFAULT_SYNC_CLIENT is None:
+        _DEFAULT_SYNC_CLIENT = GovernanceClient()
+    return _DEFAULT_SYNC_CLIENT
+
+
+def set_default_client(client: GovernanceClient | None) -> None:
+    """Set or clear the default GovernanceClient singleton."""
+    global _DEFAULT_SYNC_CLIENT
+    _DEFAULT_SYNC_CLIENT = client

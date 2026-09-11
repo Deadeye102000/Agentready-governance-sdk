@@ -385,6 +385,14 @@ class AsyncGovernanceClient:
         )
         return ToolCallResultResponse.model_validate(response.json())
 
+    async def report_tool_result(
+        self,
+        trace_id: str,
+        input: ReportToolCallResultInput | dict[str, Any],
+    ) -> ToolCallResultResponse:
+        """Alias for :meth:`report_tool_call_result`."""
+        return await self.report_tool_call_result(trace_id=trace_id, input=input)
+
     async def list_tool_call_traces(
         self,
         execution_id: str | None = None,
@@ -628,3 +636,22 @@ class AsyncGovernanceClient:
         """Get observability dashboard metrics for the organization."""
         response = await self._request("GET", "/api/v1/observability/dashboard")
         return response.json()
+
+
+AsyncAgentReadyClient = AsyncGovernanceClient
+
+_DEFAULT_ASYNC_CLIENT: AsyncGovernanceClient | None = None
+
+
+def get_default_async_client() -> AsyncGovernanceClient:
+    """Return or initialize the default AsyncGovernanceClient singleton."""
+    global _DEFAULT_ASYNC_CLIENT
+    if _DEFAULT_ASYNC_CLIENT is None:
+        _DEFAULT_ASYNC_CLIENT = AsyncGovernanceClient()
+    return _DEFAULT_ASYNC_CLIENT
+
+
+def set_default_async_client(client: AsyncGovernanceClient | None) -> None:
+    """Set or clear the default AsyncGovernanceClient singleton."""
+    global _DEFAULT_ASYNC_CLIENT
+    _DEFAULT_ASYNC_CLIENT = client
