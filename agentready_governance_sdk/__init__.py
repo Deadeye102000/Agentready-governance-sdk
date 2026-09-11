@@ -1,7 +1,21 @@
 """AgentReady Governance SDK for Python."""
 
 from agentready_governance_sdk._version import __version__
-from agentready_governance_sdk.client import AsyncGovernanceClient
+from agentready_governance_sdk.client import (
+    AsyncAgentReadyClient,
+    AsyncGovernanceClient,
+    get_default_async_client,
+    set_default_async_client,
+)
+from agentready_governance_sdk.context import (
+    agentready_execution,
+    get_current_agent_id,
+    get_current_client,
+    get_current_delegation_chain,
+    get_current_execution_id,
+    set_current_execution,
+)
+from agentready_governance_sdk.decorators import guard_tool
 from agentready_governance_sdk.evaluator import evaluate_trajectory_traces
 from agentready_governance_sdk.exceptions import (
     AgentReadyAPIError,
@@ -18,8 +32,15 @@ from agentready_governance_sdk.exceptions import (
     NotFoundError,
     PayloadTooLargeError,
     PermissionDeniedError,
+    PolicyTimeoutError,
     RateLimitError,
+    ToolBlockedError,
     ValidationError,
+)
+from agentready_governance_sdk.integrations import (
+    AgentReadyCallbackHandler,
+    AgentReadyCrewAITool,
+    guard_crew_tool,
 )
 from agentready_governance_sdk.models import (
     ActorType,
@@ -68,12 +89,35 @@ from agentready_governance_sdk.models import (
     UpsertAgentFeatureFlagInput,
     UpsertApprovalGateInput,
 )
-from agentready_governance_sdk.sync_client import GovernanceClient
+from agentready_governance_sdk.sync_client import (
+    AgentReadyClient,
+    GovernanceClient,
+    get_default_client,
+    set_default_client,
+)
 
 __all__ = [
     # Clients
+    "AgentReadyClient",
+    "AsyncAgentReadyClient",
     "AsyncGovernanceClient",
     "GovernanceClient",
+    "get_default_async_client",
+    "get_default_client",
+    "set_default_async_client",
+    "set_default_client",
+    # Framework Adapters & Decorators
+    "AgentReadyCallbackHandler",
+    "AgentReadyCrewAITool",
+    "guard_crew_tool",
+    "guard_tool",
+    # Context
+    "agentready_execution",
+    "get_current_agent_id",
+    "get_current_client",
+    "get_current_delegation_chain",
+    "get_current_execution_id",
+    "set_current_execution",
     # Evaluator
     "evaluate_trajectory_traces",
     # Enums
@@ -139,7 +183,9 @@ __all__ = [
     "NotFoundError",
     "PayloadTooLargeError",
     "PermissionDeniedError",
+    "PolicyTimeoutError",
     "RateLimitError",
+    "ToolBlockedError",
     "ValidationError",
     # Version
     "__version__",
