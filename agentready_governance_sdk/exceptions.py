@@ -202,14 +202,63 @@ class ApprovalRequiredError(AgentReadyAPIError):
 
     def __init__(
         self,
-        message: str = "Approval required",
+        approval_request_id: str | None = None,
+        tool_name: str | None = None,
+        execution_id: str | None = None,
+        message: str | None = None,
         status_code: int = 403,
         code: str = "APPROVAL_REQUIRED",
         details: dict[str, Any] | None = None,
     ) -> None:
+        self.approval_request_id = approval_request_id
+        self.tool_name = tool_name
+        self.execution_id = execution_id
+        if message is None:
+            if approval_request_id:
+                if tool_name:
+                    message = (
+                        f"Tool '{tool_name}' requires approval "
+                        f"(request ID: {approval_request_id})"
+                    )
+                else:
+                    message = f"Approval required (request ID: {approval_request_id})"
+
+            else:
+                message = "Approval required"
         super().__init__(
             message=message, status_code=status_code, code=code, details=details
         )
+
+
+class ToolBlockedError(AgentReadyError):
+    """Raised when a tool execution is blocked by policy or feature flag."""
+
+    def __init__(
+        self,
+        reason: str,
+        tool_name: str | None = None,
+        risk_score: float | None = None,
+    ) -> None:
+        self.reason = reason
+        self.tool_name = tool_name
+        self.risk_score = risk_score
+        message = (
+            f"Tool '{tool_name}' was blocked: {reason}"
+            if tool_name
+            else f"Tool blocked: {reason}"
+        )
+        super().__init__(message)
+        self.message = message
+
+
+class PolicyTimeoutError(AgentReadyError):
+    """Raised when waiting for policy evaluation or approval times out."""
+
+    def __init__(
+        self, message: str = "Policy evaluation or approval timed out"
+    ) -> None:
+        super().__init__(message)
+        self.message = message
 
 
 class InternalServerError(AgentReadyAPIError):
@@ -230,7 +279,7 @@ class InternalServerError(AgentReadyAPIError):
         )
 
 
-class ApprovalTimeoutError(AgentReadyError):
+class ApprovalTimeoutError(PolicyTimeoutError):
     """SDK-side control flow exception when waiting for approval times out."""
 
     def __init__(

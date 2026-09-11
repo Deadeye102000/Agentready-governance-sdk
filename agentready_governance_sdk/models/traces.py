@@ -78,7 +78,7 @@ class ReportToolCallResultInput(BaseApiModel):
     """Input for reporting the outcome of a completed tool call."""
 
     status: ToolCallStatus | str
-    output: dict[str, Any] | None = None
+    output: Any | None = None
     error: str | None = None
     latency_ms: int | None = None
     is_final_action: bool | None = None
